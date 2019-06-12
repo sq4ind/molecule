@@ -7,6 +7,12 @@ Unreleased
 
 * `dependency` step is now run by default before any playbook sequence step, including
   `create` and `destroy`. This allows the use of roles in all sequence step playbooks.
+* Removed validation regex for docker registry passwords, all ``string`` values are now valid.
+* Add ``tty`` option to the Docker driver.
+* Specify new lower bound of 3.0.2 for ``testinfra`` which uses the new Ansible test runner.
+* Place upper bounds on inspec and rubocop for CI testing.
+* Support pruning of docker volumes in 'destroy' phase for docker driver
+* Update Goss to 0.3.7
 
 2.20
 ====

@@ -30,64 +30,58 @@ follows.
 
 .. _`quay.io`: https://quay.io/repository/ansible/molecule
 
-Monolith Repo
-=============
+Docker With Non-Privileged User
+===============================
 
-Molecule is generally used to test roles in isolation.  However, it can also
-test roles from a monolith repo.
+Default Molecule Docker driver execute Ansible playbooks with root user. If your
+workflow require non-privileged user, some simple changes to ``molecule.yaml``
+and ``Dockerfile.j2`` are required.
 
-::
+Append to end off ``Dockerfile.j2`` commands that are creating ``ansible``
+user with passwordless sudo privileges. Variable ``SUDO_GROUP`` depends on distribution
+``wheel`` is used on ``centos:7``.
 
-    $ tree monolith-repo -L 3 --prune
-    monolith-repo
-    ├── library
-    │   └── foo.py
-    ├── plugins
-    │   └── filters
-    │       └── foo.py
-    └── roles
-        ├── bar
-        │   └── README.md
-        ├── baz
-        │   └── README.md
-        └── foo
-            └── README.md
+.. code-block:: docker
 
-The role initialized with Molecule (baz in this case) would simply reference
-the dependant roles via it's ``playbook.yml`` or meta dependencies.
+    # Create `ansible` user with sudo permissions and membership in `DEPLOY_GROUP`
+    ENV ANSIBLE_USER=ansible SUDO_GROUP=wheel DEPLOY_GROUP=deployer
+    RUN set -xe \
+      && groupadd -r ${ANSIBLE_USER} \
+      && groupadd -r ${DEPLOY_GROUP} \
+      && useradd -m -g ${ANSIBLE_USER} ${ANSIBLE_USER} \
+      && usermod -aG ${SUDO_GROUP} ${ANSIBLE_USER} \
+      && usermod -aG ${DEPLOY_GROUP} ${ANSIBLE_USER} \
+      && sed -i "/^%${SUDO_GROUP}/s/ALL\$/NOPASSWD:ALL/g" /etc/sudoers
 
-Molecule can test complex scenarios leveraging this technique.
-
-.. code-block:: bash
-
-    $ cd monolith-repo/roles/baz
-    $ molecule test
-
-Molecule is simply setting the ``ANSIBLE_*`` environment variables.  To view the
-environment variables set during a Molecule operation pass the ``--debug``
-flag.
-
-.. code-block:: bash
-
-    $ molecule --debug test
-
-    DEBUG: ANSIBLE ENVIRONMENT
-    ---
-    ANSIBLE_CONFIG: /private/tmp/monolith-repo/roles/baz/molecule/default/.molecule/ansible.cfg
-    ANSIBLE_FILTER_PLUGINS: /Users/jodewey/.pyenv/versions/2.7.13/lib/python2.7/site-packages/molecule/provisioner/ansible/plugins/filters:/private/tmp/monolith-repo/roles/baz/plugins/filters:/private/tmp/monolith-repo/roles/baz/molecule/default/.molecule/plugins/filters
-    ANSIBLE_LIBRARY: /Users/jodewey/.pyenv/versions/2.7.13/lib/python2.7/site-packages/molecule/provisioner/ansible/plugins/libraries:/private/tmp/monolith-repo/roles/baz/library:/private/tmp/monolith-repo/roles/baz/molecule/default/.molecule/library
-    ANSIBLE_ROLES_PATH: /private/tmp/monolith-repo/roles:/private/tmp/monolith-repo/roles/baz/molecule/default/.molecule/roles
-
-Molecule can be customized any number of ways.  Updating the provisioner's env
-section in ``molecule.yml`` to suit the needs of the developer and layout of the
-project.
+Change ``molecule.yaml`` file by modifying ``provisioner`` block and changing
+default provisioning user from root to newly created one.
 
 .. code-block:: yaml
 
     provisioner:
       name: ansible
-      env:
-        ANSIBLE_$VAR: $VALUE
+      lint:
+        name: ansible-lint
+      inventory:
+        host_vars:
+          instance:
+            ansible_user: ansible
+
+Now you can test new user with simple task add following TASK to ``tasks/main.yml`` it
+should fail until you uncomment ``become: yes``.
+
+.. code-block:: yaml
+
+    - name: Create apps dir
+      file:
+        path: /opt/examples
+        owner: ansible
+        group: deployer
+        mode: 0775
+        state: directory
+      # become: yes
+
+Don't forget to run ``molecule destroy`` if image vas already created.
 
 Systemd Container
 =================
@@ -164,6 +158,65 @@ same image and command as shown in the ``non-privileged`` example.
 .. _`in a non-privileged container`: https://developers.redhat.com/blog/2016/09/13/running-systemd-in-a-non-privileged-container/
 .. _`start the container with extended privileges`: https://blog.docker.com/2013/09/docker-can-now-run-within-docker/
 .. _`grants the container elevated access`: https://groups.google.com/forum/#!topic/docker-user/RWLHyzg6Z78
+
+Monolith Repo
+=============
+
+Molecule is generally used to test roles in isolation.  However, it can also
+test roles from a monolith repo.
+
+::
+
+    $ tree monolith-repo -L 3 --prune
+    monolith-repo
+    ├── library
+    │   └── foo.py
+    ├── plugins
+    │   └── filters
+    │       └── foo.py
+    └── roles
+        ├── bar
+        │   └── README.md
+        ├── baz
+        │   └── README.md
+        └── foo
+            └── README.md
+
+The role initialized with Molecule (baz in this case) would simply reference
+the dependant roles via it's ``playbook.yml`` or meta dependencies.
+
+Molecule can test complex scenarios leveraging this technique.
+
+.. code-block:: bash
+
+    $ cd monolith-repo/roles/baz
+    $ molecule test
+
+Molecule is simply setting the ``ANSIBLE_*`` environment variables.  To view the
+environment variables set during a Molecule operation pass the ``--debug``
+flag.
+
+.. code-block:: bash
+
+    $ molecule --debug test
+
+    DEBUG: ANSIBLE ENVIRONMENT
+    ---
+    ANSIBLE_CONFIG: /private/tmp/monolith-repo/roles/baz/molecule/default/.molecule/ansible.cfg
+    ANSIBLE_FILTER_PLUGINS: /Users/jodewey/.pyenv/versions/2.7.13/lib/python2.7/site-packages/molecule/provisioner/ansible/plugins/filters:/private/tmp/monolith-repo/roles/baz/plugins/filters:/private/tmp/monolith-repo/roles/baz/molecule/default/.molecule/plugins/filters
+    ANSIBLE_LIBRARY: /Users/jodewey/.pyenv/versions/2.7.13/lib/python2.7/site-packages/molecule/provisioner/ansible/plugins/libraries:/private/tmp/monolith-repo/roles/baz/library:/private/tmp/monolith-repo/roles/baz/molecule/default/.molecule/library
+    ANSIBLE_ROLES_PATH: /private/tmp/monolith-repo/roles:/private/tmp/monolith-repo/roles/baz/molecule/default/.molecule/roles
+
+Molecule can be customized any number of ways.  Updating the provisioner's env
+section in ``molecule.yml`` to suit the needs of the developer and layout of the
+project.
+
+.. code-block:: yaml
+
+    provisioner:
+      name: ansible
+      env:
+        ANSIBLE_$VAR: $VALUE
 
 Vagrant Proxy Settings
 ======================

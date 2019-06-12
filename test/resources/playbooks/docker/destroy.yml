@@ -15,6 +15,7 @@
         tls_verify: "{{ item.tls_verify | default(lookup('env', 'DOCKER_TLS_VERIFY')) or false }}"
         state: absent
         force_kill: "{{ item.force_kill | default(true) }}"
+        keep_volumes: "{{ item.keep_volumes | default(true) }}"
       register: server
       with_items: "{{ molecule_yml.platforms }}"
       async: 7200

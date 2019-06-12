@@ -72,7 +72,10 @@ class Base(object):
         self._config.provisioner.manage_inventory()
 
 
-def execute_cmdline_scenarios(scenario_name, args, command_args):
+def execute_cmdline_scenarios(scenario_name,
+                              args,
+                              command_args,
+                              ansible_args=()):
     """
     Execute scenario sequences based on parsed command-line arguments.
 
@@ -90,7 +93,7 @@ def execute_cmdline_scenarios(scenario_name, args, command_args):
 
     """
     scenarios = molecule.scenarios.Scenarios(
-        get_configs(args, command_args), scenario_name)
+        get_configs(args, command_args, ansible_args), scenario_name)
     scenarios.print_matrix()
     for scenario in scenarios:
         try:
@@ -102,7 +105,7 @@ def execute_cmdline_scenarios(scenario_name, args, command_args):
                 msg = ('An error occurred during the {} sequence action: '
                        "'{}'. Cleaning up.").format(scenario.config.subcommand,
                                                     scenario.config.action)
-                LOG.warn(msg)
+                LOG.warning(msg)
                 execute_subcommand(scenario.config, 'cleanup')
                 execute_subcommand(scenario.config, 'destroy')
                 # always prune ephemeral dir if destroying on failure
@@ -115,6 +118,11 @@ def execute_cmdline_scenarios(scenario_name, args, command_args):
 def execute_subcommand(config, subcommand):
     command_module = getattr(molecule.command, subcommand)
     command = getattr(command_module, util.camelize(subcommand))
+    # knowledge of the current action is used by some provisioners
+    # to ensure they behave correctly during certain sequence steps,
+    # particulary the setting of ansible options in create/destroy,
+    # and is also used for reporting in execute_cmdline_scenarios
+    config.action = subcommand
 
     return command(config).execute()
 
@@ -129,10 +137,6 @@ def execute_scenario(scenario):
     """
 
     for action in scenario.sequence:
-        # knowledge of the current action is used by some provisioners
-        # to ensure they behave correctly during certain sequence steps,
-        # and is also used for reporting in execute_cmdline_scenarios
-        scenario.config.action = action
         execute_subcommand(scenario.config, action)
 
     # pruning only if a 'destroy' step was in the sequence allows for normal

@@ -52,6 +52,8 @@ def _model_platforms_docker_section_data():
             False,
             'command':
             'sleep infinity',
+            'tty':
+            True,
             'pid_mode':
             'host',
             'privileged':
@@ -62,6 +64,8 @@ def _model_platforms_docker_section_data():
             'volumes': [
                 '/sys/fs/cgroup:/sys/fs/cgroup:ro',
             ],
+            'keep_volumes':
+            True,
             'tmpfs': [
                 '/tmp',
                 '/run ',
@@ -83,6 +87,8 @@ def _model_platforms_docker_section_data():
             'dns_servers': [
                 '8.8.8.8',
             ],
+            'etc_hosts':
+            "{'host1.example.com': '10.3.1.5'}",
             'env': {
                 'FOO': 'bar',
                 'foo': 'bar',
@@ -174,12 +180,16 @@ def _model_platforms_docker_errors_section_data():
             },
             'override_command': int(),
             'command': int(),
+            'tty': str(),
             'pid_mode': int(),
             'privileged': str(),
             'security_opts': [
                 int(),
             ],
             'volumes': [
+                int(),
+            ],
+            'keep_volumes': [
                 int(),
             ],
             'tmpfs': [
@@ -200,6 +210,7 @@ def _model_platforms_docker_errors_section_data():
             'dns_servers': [
                 int(),
             ],
+            "etc_hosts": int(),
             'env': str(),
             'restart_policy': int(),
             'restart_retries': str(),
@@ -247,6 +258,7 @@ def test_platforms_docker_has_errors(_config):
                 'privileged': ['must be of boolean type'],
                 'override_command': ['must be of boolean type'],
                 'command': ['must be of string type'],
+                'tty': ['must be of boolean type'],
                 'registry': [{
                     'url': ['must be of string type'],
                     'credentials': [{
@@ -258,6 +270,7 @@ def test_platforms_docker_has_errors(_config):
                 'volumes': [{
                     0: ['must be of string type']
                 }],
+                'keep_volumes': ['must be of boolean type'],
                 'published_ports': [{
                     0: ['must be of string type']
                 }],
@@ -274,6 +287,7 @@ def test_platforms_docker_has_errors(_config):
                 'ulimits': [{
                     0: ['must be of string type']
                 }],
+                'etc_hosts': ['must be of [\'string\', \'dict\'] type'],
                 'env': ['must be of dict type'],
                 'restart_policy': ['must be of string type'],
                 'restart_retries': ['must be of integer type'],

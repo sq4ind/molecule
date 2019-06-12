@@ -22,10 +22,7 @@
 import distutils.spawn
 import os
 import shutil
-import sys
-from distutils.version import LooseVersion
 
-import ansible
 import pexpect
 import pytest
 import sh
@@ -237,7 +234,7 @@ def login(login_args, scenario_name='default'):
 def test(driver_name, scenario_name='default'):
     options = {
         'scenario_name': scenario_name,
-        'all': True,
+        'all': scenario_name is None,
     }
 
     if driver_name == 'delegated':
@@ -358,7 +355,16 @@ def supports_azure():
 
 @pytest.helpers.register
 def supports_digitalocean():
-    from ansible.modules.cloud.digital_ocean.digital_ocean import HAS_DOPY
+    try:
+        # ansible >=2.8
+        # The _digital_ocean module is deprecated, and will be removed in
+        # ansible 2.12. This is a temporary fix, and should be addressed
+        # based on decisions made in the related github issue:
+        # https://github.com/ansible/molecule/issues/2054
+        from ansible.modules.cloud.digital_ocean._digital_ocean import HAS_DOPY
+    except ImportError:
+        # ansible <2.8
+        from ansible.modules.cloud.digital_ocean.digital_ocean import HAS_DOPY
 
     env_vars = ('DO_API_KEY', )
 
@@ -422,15 +428,3 @@ needs_inspec = pytest.mark.skipif(
 needs_rubocop = pytest.mark.skipif(
     not has_rubocop(),
     reason='Needs rubocop to be pre-installed and available in $PATH')
-
-
-@pytest.helpers.register
-def is_supported_ansible_python_combo():
-    ansible_below_25 = LooseVersion(ansible.__version__) < LooseVersion('2.5')
-    max_py = (3, 6) if ansible_below_25 else (3, 7)
-    return sys.version_info[:2] <= max_py
-
-
-skip_unsupported_matrix = pytest.mark.skipif(
-    not is_supported_ansible_python_combo(),
-    reason='Current combination of Ansible and Python is not supported')

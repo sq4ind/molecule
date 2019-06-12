@@ -104,8 +104,7 @@ def pre_validate_base_schema(env, keep_string):
                                 'type': 'dict',
                                 'schema': {
                                     'password': {
-                                        'type': 'string',
-                                        'regex': '^[{$]+[a-z0-9A-Z]+[}]*$',
+                                        'type': 'string'
                                     },
                                 }
                             },
@@ -157,18 +156,22 @@ def pre_validate_base_schema(env, keep_string):
                         'testinfra',
                         'inspec',
                         'goss',
+                        'ansible',
                     ],
                 },
                 'lint': {
                     'type': 'dict',
                     'schema': {
                         'name': {
-                            'type': 'string',
-                            'molecule_env_var': True,
+                            'type':
+                            'string',
+                            'molecule_env_var':
+                            True,
                             'allowed': [
                                 'flake8',
                                 'rubocop',
                                 'yamllint',
+                                'ansible-lint',
                             ],
                         },
                     }
@@ -193,7 +196,7 @@ base_schema = {
             },
             'env': {
                 'type': 'dict',
-                'keyschema': {
+                'keysrules': {
                     'type': 'string',
                     'regex': '^[A-Z0-9_-]+$',
                 },
@@ -255,7 +258,7 @@ base_schema = {
             },
             'env': {
                 'type': 'dict',
-                'keyschema': {
+                'keysrules': {
                     'type': 'string',
                     'regex': '^[A-Z0-9_-]+$',
                 },
@@ -331,11 +334,11 @@ base_schema = {
             },
             'env': {
                 'type': 'dict',
-                'keyschema': {
+                'keysrules': {
                     'type': 'string',
                     'regex': '^[A-Z0-9_-]+$',
                 },
-                'valueschema': {
+                'valuesrules': {
                     'nullable': False,
                 },
                 'schema': {
@@ -413,7 +416,7 @@ base_schema = {
                     },
                     'env': {
                         'type': 'dict',
-                        'keyschema': {
+                        'keysrules': {
                             'type': 'string',
                             'regex': '^[A-Z0-9_-]+$',
                         },
@@ -474,7 +477,7 @@ base_schema = {
             },
             'env': {
                 'type': 'dict',
-                'keyschema': {
+                'keysrules': {
                     'type': 'string',
                     'regex': '^[A-Z0-9_-]+$',
                 },
@@ -502,7 +505,7 @@ base_schema = {
                     },
                     'env': {
                         'type': 'dict',
-                        'keyschema': {
+                        'keysrules': {
                             'type': 'string',
                             'regex': '^[A-Z0-9_-]+$',
                         },
@@ -653,6 +656,10 @@ platforms_docker_schema = {
                     'type': 'string',
                     'nullable': True,
                 },
+                'tty': {
+                    'type': 'boolean',
+                    'nullable': True,
+                },
                 'pid_mode': {
                     'type': 'string',
                 },
@@ -670,6 +677,9 @@ platforms_docker_schema = {
                     'schema': {
                         'type': 'string',
                     }
+                },
+                'keep_volumes': {
+                    'type': 'boolean',
                 },
                 'tmpfs': {
                     'type': 'list',
@@ -708,9 +718,15 @@ platforms_docker_schema = {
                         'type': 'string',
                     }
                 },
+                'etc_hosts': {
+                    'type': ['string', 'dict'],
+                    'keyschema': {
+                        'type': 'string',
+                    }
+                },
                 'env': {
                     'type': 'dict',
-                    'keyschema': {
+                    'keysrules': {
                         'type': 'string',
                         'regex': '^[a-zA-Z0-9_-]+$',
                     }
@@ -879,7 +895,7 @@ verifier_options_readonly_schema = {
         'type': 'dict',
         'schema': {
             'options': {
-                'keyschema': {
+                'keysrules': {
                     'readonly': True,
                 },
             },
@@ -953,6 +969,31 @@ verifier_testinfra_mutually_exclusive_schema = {
                         'type': 'string',
                         'allowed': [
                             'flake8',
+                        ],
+                    },
+                }
+            },
+        }
+    },
+}
+
+verifier_ansible_mutually_exclusive_schema = {
+    'verifier': {
+        'type': 'dict',
+        'schema': {
+            'name': {
+                'type': 'string',
+                'allowed': [
+                    'ansible',
+                ],
+            },
+            'lint': {
+                'type': 'dict',
+                'schema': {
+                    'name': {
+                        'type': 'string',
+                        'allowed': [
+                            'ansible-lint',
                         ],
                     },
                 }
@@ -1055,6 +1096,8 @@ def validate(c):
         util.merge_dicts(schema, verifier_inspec_mutually_exclusive_schema)
     elif c['verifier']['name'] == 'testinfra':
         util.merge_dicts(schema, verifier_testinfra_mutually_exclusive_schema)
+    elif c['verifier']['name'] == 'ansible':
+        util.merge_dicts(schema, verifier_ansible_mutually_exclusive_schema)
 
     v = Validator(allow_unknown=True)
     v.validate(c, schema)
